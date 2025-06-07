@@ -8,6 +8,7 @@ from mcp.client.stdio import stdio_client
 from langchain_mcp_adapters.tools import load_mcp_tools
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import ToolMessage, AIMessage
+from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -44,6 +45,8 @@ async def run_agent(prompt: str):
         async with ClientSession(read, write) as session:
             await session.initialize()
             tools = await load_mcp_tools(session)
+            llm =  ChatOpenAI(model="gpt-4o",temparature = 0, api_key = api_key)
+            agent = create_react_agent(llm, tools)
             agent = create_react_agent("openai:gpt-4o", tools)
 
             history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
@@ -83,7 +86,12 @@ if prompt:
     for out in tool_outputs:
         st.session_state.messages.append({"role": "assistant", "content": out})
         with st.chat_message("assistant"):
-            st.markdown(f"**Tool ▶**  {out}")
+            st.markdown("**Tool ▶ Full Output**")
+            try:
+                with st.expander("🔍 View JSON Output", expanded=False):
+                    st.json(out)
+            except:
+                st.markdown(out)
 
     st.session_state.messages.append({"role": "assistant", "content": ai_reply})
     with st.chat_message("assistant"):
