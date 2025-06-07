@@ -83,7 +83,7 @@ def process_medical_note(raw_text: str) -> dict:
     }
     
     # Initialize LLM and RAG components
-    llm = ChatOpenAI(temperature=0)
+    llm = ChatOpenAI(temperature=0, api_key=OPENAI_API_KEY)
     prompt = hub.pull("rlm/rag-prompt")
     raw_doc = Document(page_content=raw_text, metadata={"source": "medical_note.txt"})
     text_splitter = RecursiveCharacterTextSplitter(
@@ -92,7 +92,7 @@ def process_medical_note(raw_text: str) -> dict:
         separators=["\n\n", "\n", ".", "!", "?"],
     )
     docs = text_splitter.split_documents([raw_doc])
-    embedding_model = OpenAIEmbeddings()
+    embedding_model = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
     vectorstore = FAISS.from_documents(docs, embedding_model)
     
     # Set up retriever
@@ -342,7 +342,7 @@ def policy_check(resources) -> dict:
 def prior_auth_generator(raw_text: str):
     resourse_condition = process_medical_note(raw_text)
     policy_output = policy_check(resourse_condition)
-    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=OPENAI_API_KEY)
     prompt = f"""
     You are a clinical decision support agent.
 
