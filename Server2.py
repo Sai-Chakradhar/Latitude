@@ -227,23 +227,23 @@ def process_medical_note(raw_text: str) -> dict:
     return {
         "fhir_condition": condition_fhir,
         "llm_outputs": llm_outputs,
-        "snomed_map": retrieved_chunks_per_field
+        "Citations": retrieved_chunks_per_field
     }
 
 @mcp.tool()
 def policy_check(resources) -> dict:
-    # Load JSON back into a Python dict
-    with open("output.json", "r") as f:
-        loaded_data = json.load(f)
 
-    # Convert string keys back to integers (optional)
-    loaded_data = {int(k): v for k, v in loaded_data.items()}
-    # Step 1: Define the Pydantic model
+    loaded_data = {
+  1: "The clinical policy document outlines the coverage criteria for bariatric surgery for Medicare Plan Members, emphasizing that such surgery is an option for individuals with morbid obesity who have not achieved sufficient weight loss through traditional methods and are at risk for obesity-related complications. Eligible members must be at least 18 years old, have a BMI of 35 or higher with related comorbidities, and demonstrate unsuccessful medical treatment for obesity. Covered procedures include various types of gastric bypass and sleeve gastrectomy, while certain procedures, such as adjustable gastric banding and intestinal bypass surgery, are excluded due to insufficient evidence of their long-term efficacy. The policy also specifies that coverage is contingent upon receiving treatment at contracted facilities and may require pre-authorization.",
+  2: "The Molina Clinical Policy (MCP) outlines the guidelines for the use of Epidural Steroid Injections (ESIs) in treating back and neck pain, emphasizing that these policies are not treatment recommendations but rather criteria for determining medical necessity and payment eligibility. ESIs may be considered medically necessary for adults over 18 with specific conditions, such as radicular pain or post-surgical pain, provided they have failed conservative treatments and meet other outlined criteria. The policy also details the frequency and types of injections allowed, while specifying conditions under which ESIs are not authorized, such as non-radicular pain or excessive repeat injections. Additionally, the document highlights the importance of consulting individual benefit plans for coverage specifics and notes that regulatory guidelines from CMS take precedence over the MCP.",
+  3: "The clinical policy document outlines the Local Coverage Determination (LCD) for Epidural Steroid Injections (ESIs) for pain management, specifically addressing their use in treating conditions like lumbar, cervical, and thoracic radiculopathy, as well as post-laminectomy syndrome and herpes zoster-associated pain. It specifies that ESIs are considered medically necessary when certain criteria are met, including a documented history of pain lasting at least four weeks and failure of conservative treatments. The document also details limitations on the number of injections allowed per year, the necessity of imaging guidance during procedures, and contraindications for ESI use. Overall, while ESIs can provide short-term relief, the document emphasizes the need for careful patient selection and monitoring due to potential risks and the lack of long-term efficacy evidence.",
+  4: "The clinical policy document outlines the coverage criteria for Laparoscopic Sleeve Gastrectomy (LSG) for severe obesity under Medicare, specifically by the contractor Palmetto GBA. Coverage is limited to patients with a body mass index (BMI) of 35 kg/m\u00b2 or higher, at least one obesity-related co-morbidity, and a history of unsuccessful medical weight management. Additionally, patients must undergo a thorough multidisciplinary evaluation and demonstrate the ability to understand the surgery's risks and follow post-operative care, especially for those over 61 years old. The document emphasizes the need for proper documentation to support medical necessity and outlines specific contraindications for the procedure.",
+  5: "The UnitedHealthcare Medical Policy MP. 026.22 outlines the coverage criteria for habilitation, rehabilitation, and maintenance therapies, including occupational, physical, and speech therapy, effective July 1, 2024. It specifies documentation requirements for initial evaluations, treatment plans, and re-evaluations to establish medical necessity, emphasizing the need for objective measurements and clear treatment goals. The policy also details exclusions, such as non-skilled care and educational services, and provides guidelines for discharge criteria and group therapy documentation. Additionally, it highlights the importance of individualized care plans and the use of standardized assessments to track progress and determine ongoing therapy needs."
+}
     class SummaryChoice(BaseModel):
         """Return the index of the best-matching summary."""
         choice: int = Field(..., ge=1, le=5, description="A number from 1 to 5 indicating the best matching summary.")
 
-    # Step 2: Define your prompt builder
     def get_summary_selection_prompt(condition_text: str, summary_dict: dict[int, str]) -> str:
         numbered_summaries = "\n".join([f"{i}. {summary_dict[i]}" for i in sorted(summary_dict)])
         return f"""
@@ -261,10 +261,10 @@ def policy_check(resources) -> dict:
     Respond with the field: `choice`
     """
 
-    # Step 3: Initialize OpenAI client with instructor
+    # Initialize OpenAI client with instructor
     client = instructor.from_openai(OpenAI(api_key=os.getenv("OPENAI_API_KEY")))
 
-    # Step 4: Use the client to get structured output
+    #Use the client to get structured output
     def select_best_summary(condition_text: str, summary_dict: dict[int, str]) -> int:
         prompt = get_summary_selection_prompt(condition_text, summary_dict)
         response = client.chat.completions.create(
@@ -274,9 +274,9 @@ def policy_check(resources) -> dict:
         )
         return response.choice
     best_choice = select_best_summary(resources, loaded_data)
-    print(f" Best summary is #{best_choice}: {loaded_data[best_choice]}")
+    print(f" Best summary is #{best_choice}: {loaded_data[int(best_choice)]}")
 
-    # 1. Structured output schema
+    # Structured output schema
     class PolicyCheckResult(BaseModel):
         probability: float = Field(..., ge=0, le=1, description="Probability of approval under the policy")
         conditions_met: List[str]
@@ -284,13 +284,13 @@ def policy_check(resources) -> dict:
         verdict: str = Field(..., description="approve / deny / needs more info")
         criteria: List[str]
 
-    # 2. Load the policy text by index
+    # Load the policy text by index
     def load_policy_text(folder_path: str, index_to_filename: dict[int, str], best_idx: int) -> str:
         policy_file = os.path.join(folder_path, index_to_filename[best_idx])
         with open(policy_file, "r") as f:
             return f.read()
 
-    # 3. Generate analysis prompt
+    # Analysis prompt
     def build_policy_prompt(policy_text: str, condition_fhir: dict) -> str:
         return f"""
     You are a clinical policy reviewer. Given the following medical policy and a FHIR Condition, determine how well the condition meets the policy criteria.
@@ -323,19 +323,19 @@ def policy_check(resources) -> dict:
         return result
     # Suppose best_idx = 4 was selected earlier
     index_to_filename = {
-        0: "/Users/saichakradhar/Desktop/Sai_C3/latitudeh/OCR/ocr_output_Bariatric_Surgery.txt",
-        1: "/Users/saichakradhar/Desktop/Sai_C3/latitudeh/OCR/ocr_output_Epidural-Steroid-Injections-for-Back-and-Neck-Pain.txt",
-        2: "/Users/saichakradhar/Desktop/Sai_C3/latitudeh/OCR/ocr_output_habilitative_services_outpatient_rehabilitation.txt",  
-        3: "/Users/saichakradhar/Desktop/Sai_C3/latitudeh/OCR/ocr_output_LCD_Epi.txt",
-        4: "/Users/saichakradhar/Desktop/Sai_C3/latitudeh/OCR/ocr_output_LCD_Laproscopic.txt"
+        1: "OCR/ocr_output_Bariatric_Surgery.txt",
+        2: "OCR/ocr_output_Epidural-Steroid-Injections-for-Back-and-Neck-Pain.txt",
+        3: "OCR/ocr_output_habilitative_services_outpatient_rehabilitation.txt",  
+        4: "OCR/ocr_output_LCD_Epi.txt",
+        5: "OCR/ocr_output_LCD_Laproscopic.txt"
     }
 
-    result = run_policy_check("path/to/policy_docs", index_to_filename, best_idx=best_choice, condition_fhir=resources)
+    result = run_policy_check("/home/isaichakri/Latitude", index_to_filename, best_idx=best_choice, condition_fhir=resources)
 
-    print(f"\n✅ Verdict: {result.verdict}")
-    print(f"📊 Probability: {result.probability * 100:.1f}%")
-    print("✔️ Conditions Met:", result.conditions_met)
-    print("❌ Conditions Missing:", result.conditions_missing)
+    print(f"\n Verdict: {result.verdict}")
+    print(f"Probability: {result.probability * 100:.1f}%")
+    print("Conditions Met:", result.conditions_met)
+    print("Conditions Missing:", result.conditions_missing)
     return result
 
 @mcp.tool()
