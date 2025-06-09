@@ -40,8 +40,8 @@ This project is an end-to-end **Clinical Decision Support** system that processe
 1. **Clone the repo**
 
    ```bash
-   git clone https://github.com/your-username/your-repo-name.git
-   cd your-repo-name
+   git clone https://github.com/Sai-Chakradhar/Latitude.git
+   cd Latitude
    ```
 
 2. **Set up virtual environment**
